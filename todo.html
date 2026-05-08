@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>To-Do List</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    min-height: 100vh;
+    margin: 0;
+    padding: 40px 20px;
+    display: flex;
+    justify-content: center;
+  }
+  .app {
+    background: #fff;
+    width: 100%;
+    max-width: 520px;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    padding: 28px;
+  }
+  h1 {
+    margin: 0 0 6px;
+    color: #333;
+    text-align: center;
+  }
+  .sub {
+    text-align: center;
+    color: #888;
+    margin-bottom: 22px;
+    font-size: 14px;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  input[type=text] {
+    flex: 1;
+    padding: 12px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: border .15s;
+  }
+  input[type=text]:focus { border-color: #667eea; }
+  button {
+    background: #667eea;
+    color: #fff;
+    border: none;
+    padding: 0 18px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background .15s;
+  }
+  button:hover { background: #5568d3; }
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    justify-content: center;
+  }
+  .filters button {
+    background: #f0f0f0;
+    color: #555;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .filters button.active { background: #667eea; color: #fff; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    animation: fadein .2s;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+  li input[type=checkbox] {
+    width: 20px; height: 20px; cursor: pointer; accent-color: #667eea;
+  }
+  li .text {
+    flex: 1;
+    font-size: 15px;
+    color: #333;
+    word-break: break-word;
+  }
+  li.done .text {
+    text-decoration: line-through;
+    color: #aaa;
+  }
+  .del {
+    background: transparent;
+    color: #c0392b;
+    font-size: 18px;
+    padding: 4px 8px;
+  }
+  .del:hover { background: #fdecea; }
+  .empty {
+    text-align: center;
+    color: #aaa;
+    padding: 30px 0;
+    font-style: italic;
+  }
+  .stats {
+    margin-top: 16px;
+    display: flex;
+    justify-content: space-between;
+    color: #888;
+    font-size: 13px;
+  }
+  .clear {
+    background: transparent;
+    color: #c0392b;
+    padding: 4px 10px;
+    font-size: 13px;
+  }
+  .clear:hover { background: #fdecea; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>📋 Můj To-Do List</h1>
+  <div class="sub">Úkoly se automaticky ukládají v prohlížeči</div>
+
+  <div class="row">
+    <input id="newTask" type="text" placeholder="Co je třeba udělat?" maxlength="200">
+    <button onclick="addTask()">Přidat</button>
+  </div>
+
+  <div class="filters">
+    <button data-f="all" class="active" onclick="setFilter('all')">Vše</button>
+    <button data-f="active" onclick="setFilter('active')">Aktivní</button>
+    <button data-f="done" onclick="setFilter('done')">Hotové</button>
+  </div>
+
+  <ul id="list"></ul>
+
+  <div class="stats">
+    <span id="count"></span>
+    <button class="clear" onclick="clearDone()">Smazat hotové</button>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'todo.tasks.v1';
+  let tasks = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  let filter = 'all';
+
+  const listEl = document.getElementById('list');
+  const inputEl = document.getElementById('newTask');
+  const countEl = document.getElementById('count');
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  }
+
+  function addTask() {
+    const text = inputEl.value.trim();
+    if (!text) return;
+    tasks.push({ id: Date.now() + Math.random(), text, done: false });
+    inputEl.value = '';
+    save();
+    render();
+  }
+
+  function toggle(id) {
+    const t = tasks.find(t => t.id === id);
+    if (t) { t.done = !t.done; save(); render(); }
+  }
+
+  function remove(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    save();
+    render();
+  }
+
+  function clearDone() {
+    if (!tasks.some(t => t.done)) return;
+    if (!confirm('Smazat všechny hotové úkoly?')) return;
+    tasks = tasks.filter(t => !t.done);
+    save();
+    render();
+  }
+
+  function setFilter(f) {
+    filter = f;
+    document.querySelectorAll('.filters button').forEach(b => {
+      b.classList.toggle('active', b.dataset.f === f);
+    });
+    render();
+  }
+
+  function render() {
+    const visible = tasks.filter(t =>
+      filter === 'all' ? true : filter === 'done' ? t.done : !t.done
+    );
+    listEl.innerHTML = '';
+    if (visible.length === 0) {
+      listEl.innerHTML = '<div class="empty">Žádné úkoly</div>';
+    } else {
+      visible.forEach(t => {
+        const li = document.createElement('li');
+        if (t.done) li.classList.add('done');
+        li.innerHTML = `
+          <input type="checkbox" ${t.done ? 'checked' : ''}>
+          <span class="text"></span>
+          <button class="del" title="Smazat">✕</button>
+        `;
+        li.querySelector('.text').textContent = t.text;
+        li.querySelector('input').onchange = () => toggle(t.id);
+        li.querySelector('.del').onclick = () => remove(t.id);
+        listEl.appendChild(li);
+      });
+    }
+    const left = tasks.filter(t => !t.done).length;
+    countEl.textContent = `Zbývá: ${left} | Celkem: ${tasks.length}`;
+  }
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') addTask();
+  });
+
+  render();
+</script>
+</body>
+</html>
